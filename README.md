@@ -47,4 +47,20 @@ npm run check:deploy -- https://your-domain.vercel.app
 Detailed docs:
 - docs/production-launch-checklist.md
 - docs/ui-polish-qa.md
+
+## SMTP Setup (Brevo + Vercel)
+
+Contact and Newsletter forms now call Vercel serverless APIs:
+- /api/contact
+- /api/newsletter
+
+Set these Environment Variables in Vercel Project Settings:
+- BREVO_SMTP_HOST=smtp-relay.brevo.com
+- BREVO_SMTP_PORT=587
+- BREVO_SMTP_USER=your-brevo-login
+- BREVO_SMTP_PASS=your-brevo-smtp-key
+- MAIL_FROM=no-reply@dorjighor.com.bd
+- MAIL_TO=support@dorjighor.com.bd
+
+After adding env vars, trigger a Redeploy in Vercel.
 # Dorjighor

@@ -9,20 +9,43 @@ export default function Contact() {
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !details.trim()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    setSubmitMessage('');
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          subject,
+          details: details.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
+
       setIsSubmitted(true);
+      setSubmitMessage('Ticket submitted successfully. Our team will contact you soon.');
       setName('');
       setEmail('');
       setSubject('Order Support');
       setDetails('');
-    }, 600);
+    } catch {
+      setIsSubmitted(false);
+      setSubmitMessage('Ticket submission failed. Please try again in a moment.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -112,8 +135,10 @@ export default function Contact() {
                 ></textarea>
               </div>
 
-              {isSubmitted && (
-                <p className="text-xs font-black text-green-600 uppercase tracking-widest">Ticket submitted successfully. Our team will contact you soon.</p>
+              {submitMessage && (
+                <p className={`text-xs font-black uppercase tracking-widest ${isSubmitted ? 'text-green-600' : 'text-red-600'}`}>
+                  {submitMessage}
+                </p>
               )}
 
               <button

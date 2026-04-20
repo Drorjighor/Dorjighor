@@ -36,21 +36,40 @@ export default function Newsletter() {
     setPreferences((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!email.trim()) return;
 
-    const nextRecord: NewsletterRecord = {
-      email: email.trim().toLowerCase(),
-      preferences,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
 
-    saveSubscription(nextRecord);
-    setSubscribed(nextRecord);
-    setMessage('Subscription saved successfully.');
-    setEmail('');
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          preferences,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
+
+      const nextRecord: NewsletterRecord = {
+        email: normalizedEmail,
+        preferences,
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+
+      saveSubscription(nextRecord);
+      setSubscribed(nextRecord);
+      setMessage('Subscription submitted successfully.');
+      setEmail('');
+    } catch {
+      setMessage('Subscription failed. Please try again.');
+    }
   };
 
   const loadFromCurrent = () => {
