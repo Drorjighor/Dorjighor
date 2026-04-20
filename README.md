@@ -37,4 +37,14 @@ This app uses BrowserRouter, so static hosting must rewrite all non-file routes 
 Already configured in this repo:
 - vercel.json with SPA rewrite to index.html
 - long cache for hashed assets under /assets
+
+## Post Deploy Validation
+
+Run the automated checks against your deployed URL:
+
+npm run check:deploy -- https://your-domain.vercel.app
+
+Detailed docs:
+- docs/production-launch-checklist.md
+- docs/ui-polish-qa.md
 # Dorjighor
