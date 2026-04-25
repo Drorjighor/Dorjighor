@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { products, Review } from '../data/products';
 import { motion } from 'motion/react';
-import { ShoppingCart, Heart, Minus, Plus, ChevronLeft, ChevronRight, Star, User, MessageSquare, Send, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Heart, Minus, Plus, ChevronLeft, ChevronRight, Star, User, MessageSquare, Send, CheckCircle2, MapPin } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 
@@ -14,6 +14,7 @@ export default function ProductDetails() {
   const customOrderUrl = product
     ? `/custom-tailoring?fabric=${encodeURIComponent(product.name)}&garmentType=${encodeURIComponent(customOrderGarmentType)}`
     : '/custom-tailoring';
+  const [selectedColorName, setSelectedColorName] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -37,25 +38,65 @@ export default function ProductDetails() {
     return (total / reviews.length).toFixed(1);
   }, [reviews]);
 
+  const selectedVariant = useMemo(() => {
+    if (!product?.variants || product.variants.length === 0) return undefined;
+    if (!selectedColorName) return product.variants[0];
+    return product.variants.find((variant) => variant.name === selectedColorName) || product.variants[0];
+  }, [product, selectedColorName]);
+
+  const sizeStockList = useMemo(() => {
+    if (selectedVariant?.sizes && selectedVariant.sizes.length > 0) {
+      return selectedVariant.sizes;
+    }
+
+    if (product?.sizes && product.sizes.length > 0) {
+      return product.sizes.map((size) => ({ size, stock: 15 }));
+    }
+
+    return [];
+  }, [product, selectedVariant]);
+
+  const availableSizes = useMemo(() => sizeStockList.map((item) => item.size), [sizeStockList]);
+
+  const selectedSizeStock = useMemo(() => {
+    if (sizeStockList.length === 0) return undefined;
+    const fallback = sizeStockList[0];
+    if (!selectedSize) return fallback;
+    return sizeStockList.find((item) => item.size === selectedSize) || fallback;
+  }, [selectedSize, sizeStockList]);
+
   const galleryImages = useMemo(() => {
     if (!product) return [];
 
-    const generatedImages = [1, 2, 3, 4].map(
-      (i) => `https://picsum.photos/seed/${product.id}-${i}/800/1000`
-    );
+    const byVariant = selectedVariant?.images || [];
+    const byProduct = product.galleryImages && product.galleryImages.length > 0
+      ? product.galleryImages
+      : [product.mainImage || product.image];
 
-    return Array.from(new Set([product.image, ...generatedImages]));
-  }, [product]);
+    return Array.from(new Set([...byVariant, ...byProduct]));
+  }, [product, selectedVariant]);
 
-  const currentImage = galleryImages[selectedImageIndex] || product?.image || '';
+  const currentImage = galleryImages[selectedImageIndex] || product?.mainImage || product?.image || '';
   const requiresSizeSelection =
     product?.productType === 'ReadyMade' &&
-    Boolean(product?.sizes && product.sizes.length > 0) &&
-    product?.sizes?.[0] !== 'Free Size' &&
-    product?.sizes?.[0] !== 'One Size';
+    Boolean(availableSizes.length > 0) &&
+    availableSizes[0] !== 'Free Size' &&
+    availableSizes[0] !== 'One Size';
+
+  const detailEntries = useMemo(() => {
+    if (product?.detailItems) return Object.entries(product.detailItems);
+    if (product?.details) return Object.entries(product.details);
+    return [];
+  }, [product]);
+
+  const selectedColorLabel = selectedVariant?.name || (Array.isArray(product?.color) ? product?.color?.[0] : product?.color) || 'Default';
+  const isLowStock = Boolean(selectedSizeStock && selectedSizeStock.stock <= 5);
 
   useEffect(() => {
     setSelectedImageIndex(0);
+    setSelectedColorName(product?.variants?.[0]?.name || null);
+    setSelectedSize(null);
+    setReviews(product?.reviews || []);
   }, [id]);
 
   useEffect(() => {
@@ -101,7 +142,7 @@ export default function ProductDetails() {
 
   const handleAddToBag = () => {
     if (!product) return;
-    const chosenSize = selectedSize || product.sizes?.[0];
+    const chosenSize = selectedSize || availableSizes[0];
     addToCart(product, quantity, chosenSize);
     setAddedToBag(true);
     setTimeout(() => setAddedToBag(false), 1400);
@@ -125,19 +166,26 @@ export default function ProductDetails() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="relative bg-fab-gray-light rounded-2xl overflow-hidden ratio-portrait max-h-[520px] border border-fab-gray-medium"
+              className="relative bg-fab-gray-light rounded-2xl overflow-hidden ratio-square border border-fab-gray-medium"
             >
               <img
                 src={currentImage}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-4"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  if (e.currentTarget.src !== product.image) {
-                    e.currentTarget.src = product.image;
+                  const fallbackImage = product.mainImage || product.image;
+                  if (e.currentTarget.src !== fallbackImage) {
+                    e.currentTarget.src = fallbackImage;
                   }
                 }}
               />
+
+              {galleryImages.length > 1 && (
+                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-fab-black/70 text-white text-[10px] font-black tracking-widest uppercase">
+                  {selectedImageIndex + 1}|{galleryImages.length}
+                </div>
+              )}
 
               {galleryImages.length > 1 && (
                 <>
@@ -187,14 +235,25 @@ export default function ProductDetails() {
                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      if (e.currentTarget.src !== product.image) {
-                        e.currentTarget.src = product.image;
+                      const fallbackImage = product.mainImage || product.image;
+                      if (e.currentTarget.src !== fallbackImage) {
+                        e.currentTarget.src = fallbackImage;
                       }
                     }}
                   />
                 </button>
               ))}
             </div>
+            {product.videoUrl && (
+              <a
+                href={product.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center w-fit text-[10px] uppercase tracking-widest font-black text-fab-yellow hover:underline"
+              >
+                Watch Product Video
+              </a>
+            )}
           </div>
 
           {/* Right: Product Details */}
@@ -207,6 +266,12 @@ export default function ProductDetails() {
               <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2 text-fab-black leading-none">
                 {product.name}
               </h1>
+              <p className="text-[10px] uppercase tracking-widest font-black text-fab-text-muted mb-2">
+                SKU: {product.productCode}
+              </p>
+              <p className="text-[10px] uppercase tracking-widest font-black text-fab-black mb-3">
+                Color: {selectedColorLabel}
+              </p>
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex text-fab-yellow">
                   {[...Array(5)].map((_, i) => (
@@ -219,11 +284,16 @@ export default function ProductDetails() {
               <div className="mb-4">
                 <div className="flex items-baseline space-x-3 mb-1">
                   <p className="text-3xl font-black text-fab-black italic">৳ {product.price.toLocaleString()}</p>
-                  {product.originalPrice && (
+                  {product.originalPrice && product.originalPrice > product.price && (
                     <p className="text-lg text-fab-text-muted line-through font-bold opacity-60">৳ {product.originalPrice.toLocaleString()}</p>
                   )}
                 </div>
-                {product.discountPercentage && (
+                {product.discountPrice && (
+                  <p className="text-[10px] uppercase tracking-widest font-black text-fab-text-muted mb-1">
+                    Offer Price: ৳ {product.discountPrice.toLocaleString()}
+                  </p>
+                )}
+                {product.discountPercentage && product.discountPercentage > 0 && (
                   <span className="inline-block bg-fab-yellow text-fab-black text-[10px] font-black px-2 py-0.5 rounded italic uppercase tracking-widest">
                     {product.discountPercentage}% Discount Applied
                   </span>
@@ -231,13 +301,44 @@ export default function ProductDetails() {
               </div>
               
               <p className="text-fab-text-muted text-sm leading-relaxed max-w-lg mb-0">
-                {product.description}
+                {product.shortDescription || product.description}
               </p>
+              {(product.fullDescription || product.description) !== (product.shortDescription || product.description) && (
+                <p className="text-fab-text-muted text-sm leading-relaxed max-w-lg mt-4">
+                  {product.fullDescription || product.description}
+                </p>
+              )}
             </div>
+
+            {product.variants && product.variants.length > 0 && (
+              <div className="mb-8">
+                <span className="text-[10px] uppercase font-black tracking-widest text-fab-black block mb-3">Select Color</span>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => {
+                    const isSelected = (selectedVariant?.name || '') === variant.name;
+                    return (
+                      <button
+                        key={variant.name}
+                        type="button"
+                        onClick={() => {
+                          setSelectedColorName(variant.name);
+                          setSelectedImageIndex(0);
+                          setSelectedSize(null);
+                        }}
+                        className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg transition-all ${isSelected ? 'border-fab-black bg-fab-black text-white' : 'border-fab-gray-medium bg-white text-fab-black hover:border-fab-yellow'}`}
+                      >
+                        <span className="w-3 h-3 rounded-full border border-fab-gray-medium" style={{ backgroundColor: variant.colorCode }} />
+                        <span className="text-[10px] uppercase font-black tracking-widest">{variant.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Sizes */}
             {/* Sizes or Fabric Details */}
-            {product.productType === 'ReadyMade' && product.sizes && product.sizes.length > 0 && (
+            {product.productType === 'ReadyMade' && availableSizes.length > 0 && (
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[10px] uppercase font-black tracking-widest text-fab-black">Select Size</span>
@@ -250,20 +351,30 @@ export default function ProductDetails() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+                  {sizeStockList.map((sizeInfo) => (
                     <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
+                      key={sizeInfo.size}
+                      onClick={() => setSelectedSize(sizeInfo.size)}
                       className={`min-w-[48px] h-[48px] flex items-center justify-center border-2 text-xs font-black transition-all rounded-lg ${
-                        selectedSize === size
+                        selectedSize === sizeInfo.size
                           ? 'bg-fab-black text-white border-fab-black'
                           : 'bg-white border-fab-gray-medium hover:border-fab-yellow text-fab-black'
                       }`}
                     >
-                      {size}
+                      {sizeInfo.size}
                     </button>
                   ))}
                 </div>
+                {selectedSizeStock && (
+                  <p className="mt-3 text-[10px] uppercase tracking-widest font-bold text-fab-text-muted">
+                    Stock: {selectedSizeStock.stock} pcs
+                  </p>
+                )}
+                {isLowStock && (
+                  <p className="mt-1 text-[10px] uppercase tracking-widest font-black text-red-600">
+                    Only {selectedSizeStock?.stock} left
+                  </p>
+                )}
               </div>
             )}
 
@@ -378,6 +489,13 @@ export default function ProductDetails() {
                       >
                         <span>Custom Order</span>
                       </Link>
+                      <Link
+                        to="/our-store"
+                        className="w-full bg-white text-fab-black px-8 py-5 text-sm uppercase font-black italic tracking-widest rounded-xl border-2 border-fab-gray-medium hover:border-fab-yellow transition-all flex items-center justify-center space-x-2"
+                      >
+                        <MapPin size={18} />
+                        <span>Find in Store</span>
+                      </Link>
                     </div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-fab-text-muted">
                       Choose custom order to open tailoring page with this fabric pre-selected.
@@ -396,14 +514,23 @@ export default function ProductDetails() {
                 </>
               ) : (
                 <>
-                  <button 
-                    onClick={handleAddToBag}
-                    className={`flex-grow bg-fab-black text-white px-8 py-5 text-sm uppercase font-black italic tracking-widest rounded-xl hover:bg-fab-yellow hover:text-fab-black transition-all flex items-center justify-center space-x-3 shadow-lg hover:shadow-fab-yellow/20 ${!selectedSize && product.sizes && product.sizes.length > 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    disabled={Boolean(requiresSizeSelection && !selectedSize)}
-                  >
-                    <ShoppingCart size={20} />
-                    <span>{addedToBag ? 'Added to Bag' : 'Add to Shopping Bag'}</span>
-                  </button>
+                  <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button 
+                      onClick={handleAddToBag}
+                      className={`w-full bg-fab-black text-white px-8 py-5 text-sm uppercase font-black italic tracking-widest rounded-xl hover:bg-fab-yellow hover:text-fab-black transition-all flex items-center justify-center space-x-3 shadow-lg hover:shadow-fab-yellow/20 ${!selectedSize && availableSizes.length > 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={Boolean(requiresSizeSelection && !selectedSize)}
+                    >
+                      <ShoppingCart size={20} />
+                      <span>{addedToBag ? 'Added to Bag' : 'Add to Shopping Bag'}</span>
+                    </button>
+                    <Link
+                      to="/our-store"
+                      className="w-full bg-white text-fab-black px-8 py-5 text-sm uppercase font-black italic tracking-widest rounded-xl border-2 border-fab-gray-medium hover:border-fab-yellow transition-all flex items-center justify-center space-x-2"
+                    >
+                      <MapPin size={18} />
+                      <span>Find in Store</span>
+                    </Link>
+                  </div>
                   <button 
                     onClick={() => toggleWishlist(product)}
                     className={`w-16 h-16 flex items-center justify-center rounded-xl border-2 transition-all group ${
@@ -418,36 +545,53 @@ export default function ProductDetails() {
               )}
             </div>
 
-            {/* Delivery/Payment Info (Grid) */}
+            {/* Extra Info */}
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium transition-colors hover:border-fab-yellow">
-                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Standard Delivery</p>
-                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">Ships within 24-48 hours</p>
+                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Brand</p>
+                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">{product.brand}</p>
               </div>
               <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium transition-colors hover:border-fab-yellow">
-                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Return & Refund</p>
-                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">7 Days Easy Return Policy</p>
+                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Origin Country</p>
+                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">{product.originCountry}</p>
+              </div>
+              <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium transition-colors hover:border-fab-yellow">
+                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Delivery Time</p>
+                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">{product.deliveryTime}</p>
+              </div>
+              <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium transition-colors hover:border-fab-yellow">
+                <p className="text-[10px] font-black uppercase text-fab-black mb-1">Return Policy</p>
+                <p className="text-[9px] text-fab-text-muted font-bold uppercase tracking-wider">{product.returnPolicy}</p>
               </div>
             </div>
 
-            {/* Easy Returns Section */}
-            <div className="mb-10 p-5 bg-fab-black text-white rounded-xl">
-               <h4 className="text-[10px] uppercase font-black tracking-widest mb-3 flex items-center text-fab-yellow">
-                 <CheckCircle2 size={12} className="mr-2" />
-                 Easy Returns & Exchange
-               </h4>
-               <ul className="space-y-2 text-[9px] font-bold uppercase tracking-wider opacity-80">
-                 <li>• Tell us within 7 days</li>
-                 <li>• Free return shipping*</li>
-                 <li>• Instant refund on receipt</li>
-               </ul>
+            {/* Materials & Care */}
+            <div className="mb-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium">
+                <h4 className="text-[10px] uppercase font-black tracking-widest text-fab-black mb-2">Materials</h4>
+                <ul className="space-y-1 text-xs text-fab-text-muted">
+                  {(product.materials || []).map((item) => (
+                    <li key={`${item.name}-${item.percentage || 'na'}`}>
+                      • {item.name}{typeof item.percentage === 'number' ? ` ${item.percentage}%` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-4 bg-fab-gray-light rounded-xl border border-fab-gray-medium">
+                <h4 className="text-[10px] uppercase font-black tracking-widest text-fab-black mb-2">Care Instructions</h4>
+                <ul className="space-y-1 text-xs text-fab-text-muted">
+                  {(product.careInstructions || []).map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            
-            {product.details && (
+
+            {detailEntries.length > 0 && (
               <div className="mb-10 space-y-4">
-                <h4 className="text-[10px] uppercase font-black tracking-widest text-fab-black italic opacity-60">Fabric & Composition</h4>
+                <h4 className="text-[10px] uppercase font-black tracking-widest text-fab-black italic opacity-60">Product Details</h4>
                 <div className="grid grid-cols-1 gap-y-3 p-5 bg-fab-gray-light rounded-xl border border-fab-gray-medium">
-                  {Object.entries(product.details).map(([key, value]) => (
+                  {detailEntries.map(([key, value]) => (
                     <div key={key} className="flex justify-between items-center border-b border-white pb-2 last:border-0 last:pb-0">
                       <span className="text-[9px] font-black uppercase tracking-widest text-fab-text-muted">{key}</span>
                       <span className="text-[10px] font-bold uppercase text-fab-black">{value}</span>

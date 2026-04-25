@@ -6,6 +6,23 @@ export interface Review {
   date: string;
 }
 
+export interface ProductSizeStock {
+  size: string;
+  stock: number;
+}
+
+export interface ProductColorVariant {
+  name: string;
+  colorCode: string;
+  images: string[];
+  sizes: ProductSizeStock[];
+}
+
+export interface ProductMaterial {
+  name: string;
+  percentage?: number;
+}
+
 export type ProductType = 'ReadyMade' | 'Fabric';
 
 export interface FabricDetail {
@@ -22,25 +39,40 @@ export interface FabricDetail {
 export interface Product {
   id: string;
   name: string;
+  productCode?: string;
   productType: ProductType;
   price: number;
+  discountPrice?: number;
   originalPrice?: number;
   discountPercentage?: number;
-  category: 'Men' | 'Women' | 'Accessories';
+  category: 'Men' | 'Women' | 'Accessories' | 'Panjabi';
   description: string;
   image: string;
+  mainImage?: string;
+  galleryImages?: string[];
+  videoUrl?: string;
+  variants?: ProductColorVariant[];
+  shortDescription?: string;
+  fullDescription?: string;
   features: string[];
   sizes?: string[];
   color?: string | string[];
   material?: string;
+  materials?: ProductMaterial[];
+  careInstructions?: string[];
   fabricDetails?: FabricDetail;
   details?: {
     [key: string]: string;
   };
+  detailItems?: Record<string, string>;
+  brand?: string;
+  originCountry?: string;
+  deliveryTime?: string;
+  returnPolicy?: string;
   reviews?: Review[];
 }
 
-export const products: Product[] = [
+const baseProducts: Product[] = [
   {
     id: '1',
     name: 'Executive Silk Panjabi',
@@ -226,4 +258,171 @@ export const products: Product[] = [
     },
     reviews: [],
   },
+  {
+    id: '11',
+    name: 'Premium Black Panjabi',
+    productCode: 'DRJ-PAN-001',
+    productType: 'ReadyMade',
+    price: 2450,
+    category: 'Panjabi',
+    description: 'প্রিমিয়াম ব্ল্যাক পাঞ্জাবি, এলিগেন্ট ডিজাইন ও পারফেক্ট ফিট।',
+    shortDescription: 'প্রিমিয়াম ব্ল্যাক পাঞ্জাবি, এলিগেন্ট ডিজাইন ও পারফেক্ট ফিট।',
+    fullDescription:
+      'Dorjighor-এর এই প্রিমিয়াম ব্ল্যাক পাঞ্জাবিটি আধুনিকতা ও ঐতিহ্যের এক অনন্য সমন্বয়। সূক্ষ্ম এমব্রয়ডারি ও হাই-কোয়ালিটি ফেব্রিক দিয়ে তৈরি, যা আপনাকে দিবে একটি স্টাইলিশ ও আরামদায়ক অভিজ্ঞতা। পারফেক্ট ফিট নিশ্চিত করতে কাস্টম অর্ডার সুবিধাও রয়েছে।',
+    image: 'https://github.com/Drorjighor/images/blob/main/Panjabi/Premium%20Panjabi.png?raw=true',
+    mainImage: 'https://github.com/Drorjighor/images/blob/main/Panjabi/Premium%20Panjabi.png?raw=true',
+    galleryImages: ['https://github.com/Drorjighor/images/blob/main/Panjabi/Premium%20Panjabi.png?raw=true'],
+    variants: [
+      {
+        name: 'Black',
+        colorCode: '#000000',
+        images: [
+          'https://github.com/Drorjighor/images/blob/main/Panjabi/Premium%20Panjabi.png?raw=true',
+        ],
+        sizes: [
+          { size: 'S', stock: 10 },
+          { size: 'M', stock: 15 },
+          { size: 'L', stock: 12 },
+          { size: 'XL', stock: 8 },
+        ],
+      },
+    ],
+    features: [
+      'Premium cotton blend',
+      'Regular fit with custom fit option',
+      'Traditional style with modern embroidery',
+      'Designed for comfortable premium wear',
+    ],
+    sizes: ['S', 'M', 'L', 'XL'],
+    color: 'Black',
+    material: 'Cotton Blend',
+    materials: [
+      { name: 'Cotton', percentage: 80 },
+      { name: 'Polyester', percentage: 20 },
+    ],
+    careInstructions: [
+      'Hand wash recommended',
+      'Do not bleach',
+      'Iron at low heat',
+      'Dry in shade',
+    ],
+    detailItems: {
+      'Fabric Type': 'Premium Cotton Blend',
+      'Fit Type': 'Regular Fit / Custom Fit',
+      'Design Style': 'Traditional with Modern Embroidery',
+    },
+    brand: 'Dorjighor',
+    originCountry: 'Bangladesh',
+    deliveryTime: '3-5 days',
+    returnPolicy: '7 days return available',
+    reviews: [],
+  },
 ];
+
+const colorCodeMap: Record<string, string> = {
+  Black: '#000000',
+  White: '#ffffff',
+  'Off White': '#f7f2e8',
+  Cream: '#f6edd9',
+  'Sky Blue': '#7ec8e3',
+  'Royal Blue': '#4169e1',
+  Maroon: '#800000',
+  Gold: '#d4af37',
+  Crimson: '#dc143c',
+  Peach: '#ffcba4',
+  Brown: '#8b4513',
+  'Red Wine': '#722f37',
+};
+
+function categoryPrefix(category: Product['category']): string {
+  if (category === 'Men') return 'MN';
+  if (category === 'Women') return 'WM';
+  if (category === 'Panjabi') return 'PAN';
+  return 'AC';
+}
+
+function normalizeCareInstructions(product: Product): string[] {
+  if (product.careInstructions && product.careInstructions.length > 0) {
+    return product.careInstructions;
+  }
+  if (product.fabricDetails?.careInstructions && product.fabricDetails.careInstructions.length > 0) {
+    return product.fabricDetails.careInstructions;
+  }
+  return ['Hand wash', 'Do not bleach', 'Iron low heat'];
+}
+
+function normalizeMaterials(product: Product): ProductMaterial[] {
+  if (product.materials && product.materials.length > 0) {
+    return product.materials;
+  }
+
+  if (product.fabricDetails?.composition) {
+    return [{ name: product.fabricDetails.composition }];
+  }
+
+  if (product.material) {
+    return [{ name: product.material, percentage: 100 }];
+  }
+
+  return [{ name: 'Mixed Fabric' }];
+}
+
+function normalizeVariants(product: Product): ProductColorVariant[] {
+  const sizeList = (product.sizes && product.sizes.length > 0 ? product.sizes : ['One Size']).map((size) => ({
+    size,
+    stock: 15,
+  }));
+
+  const colors = Array.isArray(product.color)
+    ? product.color
+    : product.color
+      ? [product.color]
+      : product.fabricDetails?.availableColors && product.fabricDetails.availableColors.length > 0
+        ? product.fabricDetails.availableColors
+        : ['Default'];
+
+  return colors.map((colorName, index) => ({
+    name: colorName,
+    colorCode: colorCodeMap[colorName] || '#373a3c',
+    images: [
+      product.image,
+      `https://picsum.photos/seed/${product.id}-color-${index + 1}/800/1000`,
+    ],
+    sizes: sizeList,
+  }));
+}
+
+export const products: Product[] = baseProducts.map((product, index) => {
+  const variantList = normalizeVariants(product);
+  const hasOffer = Boolean(product.originalPrice && product.originalPrice > product.price);
+  const detailsFromLegacy = product.details || {};
+  const defaultDetailItems: Record<string, string> = {
+    'Fabric Type': product.fabricDetails?.material || product.material || 'Premium Blend',
+    'Fit Type': product.productType === 'Fabric' ? 'Custom Tailoring Compatible' : 'Regular Fit',
+    'Design Style': product.productType === 'Fabric' ? 'Tailoring Fabric' : 'Contemporary',
+    ...detailsFromLegacy,
+  };
+
+  return {
+    ...product,
+    productCode: product.productCode || `DRJ-${categoryPrefix(product.category)}-${String(index + 1).padStart(3, '0')}`,
+    discountPrice: hasOffer ? product.price : undefined,
+    mainImage: product.mainImage || product.image,
+    galleryImages: product.galleryImages || [
+      product.image,
+      `https://picsum.photos/seed/${product.id}-g1/800/1000`,
+      `https://picsum.photos/seed/${product.id}-g2/800/1000`,
+      `https://picsum.photos/seed/${product.id}-g3/800/1000`,
+    ],
+    variants: product.variants && product.variants.length > 0 ? product.variants : variantList,
+    shortDescription: product.shortDescription || product.description.split('.').slice(0, 1).join('.').trim(),
+    fullDescription: product.fullDescription || product.description,
+    detailItems: product.detailItems || defaultDetailItems,
+    materials: normalizeMaterials(product),
+    careInstructions: normalizeCareInstructions(product),
+    brand: product.brand || 'Dorjighor',
+    originCountry: product.originCountry || 'Bangladesh',
+    deliveryTime: product.deliveryTime || '3-5 days',
+    returnPolicy: product.returnPolicy || '7 days return',
+  };
+});

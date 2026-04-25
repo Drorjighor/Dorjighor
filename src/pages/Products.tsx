@@ -7,7 +7,7 @@ import { Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 export default function Products() {
-  const [activeCategory, setActiveCategory] = useState<'All' | 'Men' | 'Women' | 'Accessories'>('All');
+  const [activeCategory, setActiveCategory] = useState<'All' | 'Men' | 'Women' | 'Accessories' | 'Panjabi'>('All');
   const [activeProductType, setActiveProductType] = useState<'All' | 'ReadyMade' | 'Fabric'>('All');
   const [activeMaterial, setActiveMaterial] = useState<string>('All');
   const [activeSort, setActiveSort] = useState<'default' | 'latest' | 'popular' | 'price-asc' | 'price-desc'>('default');
@@ -24,7 +24,7 @@ export default function Products() {
     const q = params.get('q');
     const sort = params.get('sort');
 
-    if (cat && ['Men', 'Women', 'Accessories'].includes(cat)) {
+    if (cat && ['Men', 'Women', 'Accessories', 'Panjabi'].includes(cat)) {
       setActiveCategory(cat as any);
     }
 
@@ -97,7 +97,7 @@ export default function Products() {
     return sorted;
   }, [activeProductType, activeCategory, searchQuery, activeMaterial, activeSort]);
 
-  const categories = ['All', 'Men', 'Women', 'Accessories'];
+  const categories = ['All', 'Men', 'Women', 'Accessories', 'Panjabi'];
 
   return (
     <div className="page-shell">
